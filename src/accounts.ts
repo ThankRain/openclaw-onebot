@@ -26,6 +26,7 @@ export function resolveOneBotAccount(params: {
     name: raw.name,
     selfId: raw.selfId,
     apiBaseUrl: raw.apiBaseUrl,
+    wsUrl: raw.wsUrl,
     accessToken: raw.accessToken,
     webhookPath: normalizeWebhookPath(raw.webhookPath ?? defaultWebhookPath),
     webhookSecret: raw.webhookSecret,

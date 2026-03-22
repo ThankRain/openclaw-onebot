@@ -4,8 +4,8 @@ OneBot v11 MVP channel plugin.
 
 ## Current scope
 
-- inbound via HTTP webhook
-- outbound text messages via OneBot HTTP API
+- inbound via HTTP webhook or WebSocket
+- outbound text messages via OneBot HTTP API or active WebSocket session
 - private chat + group chat
 - multiple accounts
 - optional `x-signature` verification (`sha1=`)
@@ -40,6 +40,7 @@ OneBot v11 MVP channel plugin.
           "name": "NapCat",
           "selfId": "123456789",
           "apiBaseUrl": "http://127.0.0.1:3000",
+          "wsUrl": "ws://127.0.0.1:6700",
           "accessToken": "your-onebot-token",
           "webhookPath": "/onebot/default",
           "webhookSecret": "your-webhook-secret"
@@ -60,7 +61,12 @@ Send targets:
 
 ## OneBot side
 
-Configure your OneBot implementation to POST events to:
+You can use either:
+
+- HTTP webhook events -> OpenClaw webhook path
+- WebSocket client mode -> let OpenClaw connect to `wsUrl`
+
+For HTTP events, configure your OneBot implementation to POST events to:
 
 ```text
 http://<openclaw-host>:<gateway-port>/onebot/default

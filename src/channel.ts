@@ -10,6 +10,8 @@ import {
 import { resolveOneBotAccount, listOneBotAccountIds, resolveDefaultOneBotAccountId } from "./accounts.js";
 import { looksLikeOneBotTargetId, normalizeOneBotMessagingTarget } from "./normalize.js";
 import { sendMessageOneBot } from "./send.js";
+import { OneBotSocketClient, removeOneBotSocketClient, setOneBotSocketClient } from "./socket.js";
+import { handleOneBotInbound } from "./inbound.js";
 import type { CoreConfig, ResolvedOneBotAccount } from "./types.js";
 
 const meta = {
@@ -38,6 +40,7 @@ const OneBotChannelSchema = {
           name: { type: "string" },
           selfId: { type: "string" },
           apiBaseUrl: { type: "string" },
+          wsUrl: { type: "string" },
           accessToken: { type: "string" },
           webhookPath: { type: "string" },
           webhookSecret: { type: "string" }
@@ -80,14 +83,15 @@ export const onebotPlugin: ChannelPlugin<ResolvedOneBotAccount> = {
         accountId,
         clearBaseFields: ["selfId", "apiBaseUrl", "accessToken", "webhookPath", "webhookSecret", "name"],
       }),
-    isConfigured: (account) => Boolean(account.apiBaseUrl?.trim() && account.webhookPath?.trim()),
+    isConfigured: (account) => Boolean((account.apiBaseUrl?.trim() || account.wsUrl?.trim()) && account.webhookPath?.trim()),
     describeAccount: (account) => ({
       accountId: account.accountId,
       name: account.name,
       enabled: account.enabled,
-      configured: Boolean(account.apiBaseUrl?.trim() && account.webhookPath?.trim()),
+      configured: Boolean((account.apiBaseUrl?.trim() || account.wsUrl?.trim()) && account.webhookPath?.trim()),
       selfId: account.selfId ?? "[missing]",
       apiBaseUrl: account.apiBaseUrl ? "[set]" : "[missing]",
+      wsUrl: account.wsUrl ? "[set]" : "[missing]",
       webhookPath: account.webhookPath,
       hasAccessToken: Boolean(account.accessToken),
       hasWebhookSecret: Boolean(account.webhookSecret),
@@ -104,8 +108,8 @@ export const onebotPlugin: ChannelPlugin<ResolvedOneBotAccount> = {
     resolveAccountId: ({ accountId }) => normalizeAccountId(accountId),
     validateInput: ({ input }) => {
       const typed = input as Record<string, string | undefined>;
-      if (!typed.apiBaseUrl?.trim()) {
-        return "OneBot requires apiBaseUrl.";
+      if (!typed.apiBaseUrl?.trim() && !typed.wsUrl?.trim()) {
+        return "OneBot requires apiBaseUrl or wsUrl.";
       }
       if (!typed.webhookPath?.trim()) {
         return "OneBot requires webhookPath.";
@@ -123,7 +127,8 @@ export const onebotPlugin: ChannelPlugin<ResolvedOneBotAccount> = {
         enabled: true,
         ...(typed.name ? { name: typed.name } : {}),
         ...(typed.selfId ? { selfId: typed.selfId } : {}),
-        apiBaseUrl: typed.apiBaseUrl,
+        ...(typed.apiBaseUrl ? { apiBaseUrl: typed.apiBaseUrl } : {}),
+        ...(typed.wsUrl ? { wsUrl: typed.wsUrl } : {}),
         webhookPath: typed.webhookPath,
         ...(typed.accessToken ? { accessToken: typed.accessToken } : {}),
         ...(typed.webhookSecret ? { webhookSecret: typed.webhookSecret } : {}),
@@ -163,9 +168,10 @@ export const onebotPlugin: ChannelPlugin<ResolvedOneBotAccount> = {
       accountId: account.accountId,
       name: account.name,
       enabled: account.enabled,
-      configured: Boolean(account.apiBaseUrl?.trim() && account.webhookPath?.trim()),
+      configured: Boolean((account.apiBaseUrl?.trim() || account.wsUrl?.trim()) && account.webhookPath?.trim()),
       selfId: account.selfId ?? null,
       webhookPath: account.webhookPath,
+      wsUrl: account.wsUrl ?? null,
       running: runtime?.running ?? false,
       lastStartAt: runtime?.lastStartAt ?? null,
       lastStopAt: runtime?.lastStopAt ?? null,
@@ -180,15 +186,34 @@ export const onebotPlugin: ChannelPlugin<ResolvedOneBotAccount> = {
         accountId: ctx.accountId,
         setStatus: ctx.setStatus,
       });
-      if (!account.apiBaseUrl || !account.webhookPath) {
+      if (!account.wsUrl && !account.apiBaseUrl) {
         throw new Error(`OneBot not configured for account "${account.accountId}"`);
       }
       statusSink({ running: true, lastStartAt: Date.now(), lastError: null });
-      await new Promise<void>((resolve, reject) => {
-        ctx.abortSignal.addEventListener("abort", () => {
-          statusSink({ running: false, lastStopAt: Date.now() });
-          resolve();
-        }, { once: true });
+
+      let client: OneBotSocketClient | null = null;
+      if (account.wsUrl) {
+        client = new OneBotSocketClient(
+          account,
+          async (event) => {
+            await handleOneBotInbound({ event, account, config: ctx.cfg as CoreConfig });
+          },
+          (patch) => statusSink(patch),
+        );
+        setOneBotSocketClient(account.accountId, client);
+        await client.connect(ctx.abortSignal);
+      }
+
+      await new Promise<void>((resolve) => {
+        ctx.abortSignal.addEventListener(
+          "abort",
+          () => {
+            removeOneBotSocketClient(account.accountId);
+            statusSink({ running: false, lastStopAt: Date.now() });
+            resolve();
+          },
+          { once: true },
+        );
       });
     },
     logoutAccount: async ({ accountId, cfg }) => {

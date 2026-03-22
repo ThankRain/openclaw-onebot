@@ -3,6 +3,7 @@ export type OneBotAccountConfig = {
   name?: string;
   selfId?: string;
   apiBaseUrl?: string;
+  wsUrl?: string;
   accessToken?: string;
   webhookPath?: string;
   webhookSecret?: string;
@@ -26,6 +27,7 @@ export type ResolvedOneBotAccount = {
   name?: string;
   selfId?: string;
   apiBaseUrl?: string;
+  wsUrl?: string;
   accessToken?: string;
   webhookPath: string;
   webhookSecret?: string;

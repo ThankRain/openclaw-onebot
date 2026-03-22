@@ -1,5 +1,5 @@
 {
-  "name": "openclaw-onebot-plugin",
+  "name": "onebot",
   "private": true,
   "type": "module",
   "openclaw": {
