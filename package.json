@@ -1,0 +1,22 @@
+{
+  "name": "openclaw-onebot-plugin",
+  "private": true,
+  "type": "module",
+  "openclaw": {
+    "extensions": ["./index.ts"],
+    "channel": {
+      "id": "onebot",
+      "label": "OneBot",
+      "selectionLabel": "OneBot v11",
+      "docsPath": "/channels/onebot",
+      "docsLabel": "onebot",
+      "blurb": "OneBot v11 HTTP webhook + send API plugin.",
+      "aliases": ["cqhttp", "go-cqhttp", "napcat"],
+      "order": 70
+    },
+    "install": {
+      "localPath": "./onebot-plugin",
+      "defaultChoice": "local"
+    }
+  }
+}
