@@ -44,8 +44,9 @@ export class OneBotSocketClient {
         finish(resolve);
       });
 
-      ws.addEventListener("error", () => {
-        finish(() => reject(new Error("OneBot websocket connection failed")));
+      ws.addEventListener("error", (event: any) => {
+        const details = event?.message || event?.error?.message || event?.type || String(event);
+        finish(() => reject(new Error(`OneBot websocket connection failed: ${details}`)));
       });
 
       ws.addEventListener("close", () => {
