@@ -6,7 +6,7 @@ export type NormalizedOneBotTarget = {
 };
 
 export function looksLikeOneBotTargetId(value: string): boolean {
-  return /^(group|private|user|friend):\d+$/.test(value) || /^\d+$/.test(value);
+  return /^(onebot:)?(group|private|user|friend):\d+$/.test(value) || /^\d+$/.test(value);
 }
 
 export function normalizeOneBotMessagingTarget(input: string): NormalizedOneBotTarget {
@@ -15,13 +15,15 @@ export function normalizeOneBotMessagingTarget(input: string): NormalizedOneBotT
     throw new Error("OneBot target is empty");
   }
 
-  if (/^group:\d+$/.test(raw)) {
-    const to = raw.slice("group:".length);
-    return { raw, chatType: "group", target: raw, to };
+  const normalizedRaw = raw.startsWith("onebot:") ? raw.slice("onebot:".length) : raw;
+
+  if (/^group:\d+$/.test(normalizedRaw)) {
+    const to = normalizedRaw.slice("group:".length);
+    return { raw, chatType: "group", target: `group:${to}`, to };
   }
 
-  if (/^(private|user|friend):\d+$/.test(raw)) {
-    const to = raw.split(":", 2)[1]!;
+  if (/^(private|user|friend):\d+$/.test(normalizedRaw)) {
+    const to = normalizedRaw.split(":", 2)[1]!;
     return { raw, chatType: "direct", target: `private:${to}`, to };
   }
 

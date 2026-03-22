@@ -17,6 +17,13 @@ test("normalize group target", () => {
   assert.equal(normalized.to, "20002");
 });
 
+test("normalize openclaw-prefixed group target", () => {
+  const normalized = normalizeOneBotMessagingTarget("onebot:group:313214094");
+  assert.equal(normalized.chatType, "group");
+  assert.equal(normalized.target, "group:313214094");
+  assert.equal(normalized.to, "313214094");
+});
+
 test("extract plain text from message segments", () => {
   const text = extractPlainText([
     { type: "text", data: { text: "hello " } },
